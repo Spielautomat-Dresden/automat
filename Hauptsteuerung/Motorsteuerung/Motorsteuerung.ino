@@ -39,7 +39,6 @@ void addiereSchritte(int anzahlSchritte)
   int aktuellerCounterWert; 
   if(TIFR5 & (1<<OCF5A))
   {
-    Serial.print("gut");
     // Compare Match Flag ist high -> ~Enable High -> Motor steht
     aktuellerCounterWert = TCNT5;
     OCR5A = anzahlSchritte + aktuellerCounterWert;
@@ -51,7 +50,6 @@ void addiereSchritte(int anzahlSchritte)
   }
   else
   {
-    Serial.print("schlecht");
     // Compare Match Flag ist low -> ~Enable Loq -> Motor läuft bereits
     OCR5A += anzahlSchritte;
   }
@@ -59,7 +57,6 @@ void addiereSchritte(int anzahlSchritte)
 
 void setup()
 {
-  Serial.begin(9600);
   startePWM_Pin6(1000);
   startePWMcounter();
   pinMode(pinSchritt,OUTPUT);
