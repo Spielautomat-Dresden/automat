@@ -28,22 +28,38 @@ int startePWMcounter(void)
   TCCR5A &= ~ ((1<<WGM41) | (1<<WGM40)); // Fast PWM Teil 1 (WGM4 = 14, letzte beiden Bits in TCCR4A)
   TCCR5B = (0b110<<CS50); // External clock source (falling edge)
   ICR5 = 0xFFFF; // Input Capture Register maximal
-  OCR5A = 0x0000; // Output Compare Register
-  TCCR5C |= (1<<FOC5A) | (1<<FOC5B) | (1<<FOC5C);
-  TCNT5 = 0x0000;
+  OCR5A = 0x0001; // Output Compare Register
+  OCR5B = 0x0001;
+  OCR5C = 0x0001;
+  TCNT5 = 0x0000; // Timer Counter Register: Zähler auf Null setzen
 }
 
 void addiereSchritte(int anzahlSchritte)
 {
-  OCR5A = anzahlSchritte;
-  // Motor aktivieren bzw Licht anschalten
-  TCCR5A &= ~ (1 << COM5A0); // Clear on compare match
-  TCCR5C |= (1<<FOC5A); // Force output compare
-  TCCR5A |= (1<<COM5A1) | (1<<COM5A0); // Set on compare match
+  int aktuellerCounterWert; 
+  if(TIFR5 & (1<<OCF5A))
+  {
+    Serial.print("gut");
+    // Compare Match Flag ist high -> ~Enable High -> Motor steht
+    aktuellerCounterWert = TCNT5;
+    OCR5A = anzahlSchritte + aktuellerCounterWert;
+    // Motor aktivieren
+    TCCR5A &= ~ (1 << COM5A0); // Clear on compare match
+    TCCR5C |= (1<<FOC5A); // Force output compare
+    TCCR5A |= (1<<COM5A1) | (1<<COM5A0); // Set on compare match
+    TIFR5 |= (1<<OCF5A); //Output Compare Match Flag
+  }
+  else
+  {
+    Serial.print("schlecht");
+    // Compare Match Flag ist low -> ~Enable Loq -> Motor läuft bereits
+    OCR5A += anzahlSchritte;
+  }
 }
 
 void setup()
 {
+  Serial.begin(9600);
   startePWM_Pin6(1000);
   startePWMcounter();
   pinMode(pinSchritt,OUTPUT);
@@ -59,7 +75,10 @@ void setup()
 }
 void loop()
 {
-  delay(1000);
-  addiereSchritte(5);
-  delay(10000);
+  delay(3000);
+  addiereSchritte(1);
+  delay(2000);
+  addiereSchritte(2);
+  addiereSchritte(1);
+  delay(5000);
 }
