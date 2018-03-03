@@ -1,4 +1,4 @@
-unit8_t Sensorregister[] = {0,0,0};
+uint8_t Sensorregister[] = {0,0,0};
 
 /*
 Startet Timer 3. Dieser dient dem Einstellen einer konstanten Abtastrate.
@@ -26,13 +26,13 @@ void initialisiereSensorpins(void)
 
 void pruefeLoecher(void)
 {
-  Sensorregister[0] = PINA
-  Sensorregister[1] = PINF
-  Sensorregister[1] = PINK
-  if( ! Sensorregister[2]) // TODO Eventuell Sensorlogik anpassen
+  Sensorregister[0] = PINA & 0x3F;
+  Sensorregister[1] = PINF & 0x3F;
+  Sensorregister[2] = PINK & 0x3F;
+  if( ! (Sensorregister[1] == 0x3F)) // TODO Eventuell Sensorlogik anpassen
   {
     // Mindestens ein Loch in Channel F getroffen
-    
+    Serial.print("b");
   }
 }
 
