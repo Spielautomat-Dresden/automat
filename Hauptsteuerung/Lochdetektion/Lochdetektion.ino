@@ -1,5 +1,6 @@
 uint8_t Sensorregister[] = {0,0,0};
 
+
 /*
 Startet Timer 3. Dieser dient dem Einstellen einer konstanten Abtastrate.
 */
@@ -21,18 +22,31 @@ void initialisiereSensorpins(void)
   PORTF &= 0xC0;
   PORTK &= 0xC0;
   
-  PORTF = 0xFF; //TODO !!!!!!!!!!!!! NUR ZUM TESTEN !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  PORTA = 0xFF; //TODO !!!!!!!!!!!!! NUR ZUM TESTEN; später Zeile löschen !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  PORTF = 0xFF;
+  PORTK = 0xFF;
 }
 
 void pruefeLoecher(void)
 {
-  Sensorregister[0] = PINA & 0x3F;
-  Sensorregister[1] = PINF & 0x3F;
-  Sensorregister[2] = PINK & 0x3F;
-  if( ! (Sensorregister[1] == 0x3F)) // TODO Eventuell Sensorlogik anpassen
+  Sensorregister[0] = (~PINA) & 0x3F;
+  Sensorregister[1] = (~PINF) & 0x3F;
+  Sensorregister[2] = (~PINK) & 0x3F;
+  
+  for(int tisch = 0; tisch <= 2; tisch++)
   {
-    // Mindestens ein Loch in Channel F getroffen
-    Serial.print("b");
+    if(Sensorregister[tisch]) // TODO Eventuell Sensorlogik anpassen
+    {
+      // Mindestens ein Loch in Channel F getroffen
+      for(int loch = 0; loch <=5; loch++)
+      {
+        if(Sensorregister[tisch] & (1 << loch))
+        {
+          Serial.print(loch);
+          Serial.println(tisch);
+        }
+      }
+    }
   }
 }
 
