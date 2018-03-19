@@ -5,14 +5,21 @@ const int pinSchritt = 6;
 // Enable-Pins (jeweils mit Motortreibern verbunden)
 const int pinsEnable[] = {44,45,46};
 // Periodendauer der Schrittmotoren bei Vorwaertsgang in ms
-const int schrittPeriode = 0;
-// Pins der Sensoren. Reihenfolge beachten
-const int pinsTische[3][6] = {{41,39,37,35,33,31}, {52,50,48,52,50,42},{53,51,49,47,45,43}};
+const int schrittPeriode = 1000;
+// Periodendauer der Sensorabfrageperiode
+const int abtastPeriode = 4;
+const int pinRichtung = 11;
+const int pinEndlage[] = {5,10,2};
 
 
 const int entprellZyklen = 200;
 int entprellZaehler[3][6] = {0};
 uint8_t Sensorregister[] = {0,0,0};
+const int schrittMaximum = 20; // Maximale Schrittanzahl bis Tischende
+int schrittKonto[3] = {schrittMaximum};
+const int lochBonus[] = {3,3,3,6,6,10};
+boolean spielBeendet = true;
+int siegerTisch = 3;
 
 
 int startePWM_Pin6(int periodendauer_ms)
@@ -86,6 +93,7 @@ void pruefeLoecher(void)
           entprellZaehler[tisch][loch] = entprellZyklen;
           Serial.print(loch);Serial.print(" "); 
           Serial.println(tisch);
+          setzeSchritte(tisch, loch);
         }
       }
       else if(entprellZaehler[tisch][loch] > 0)
@@ -97,8 +105,34 @@ void pruefeLoecher(void)
   }
 }
 
-void addiereSchritte(int anzahlSchritte)
+void setzeSchritte(int tisch, int loch)
 {
+  int schrittDifferenz = schrittMaximum - schrittKonto[tisch];
+  
+  if(schrittDifferenz > lochBonus[loch])
+  {
+    // Normalfall
+    addiereSchritte(lochBonus[loch], tisch);
+    schrittKonto[tisch] += lochBonus[loch];
+  }
+  else
+  {
+    // Dieser Tisch ist Sieger
+    addiereSchritte(schrittDifferenz, tisch);
+    siegerTisch = tisch;
+    spielBeendet = true;
+    schrittKonto[tisch] += schrittDifferenz;
+  }
+  
+  Serial.println(schrittKonto[tisch]);
+}
+    
+
+void addiereSchritte(int anzahlSchritte, int tisch)
+{
+  Serial.println("addiere Schritte");Serial.println(anzahlSchritte);Serial.println(tisch);
+  // TODO: tisch beachten!!!
+  // Beachten Tischreihenfolge "umgekehrt": Tisch 0 an Channel C
   int aktuellerCounterWert; 
   if(TIFR5 & (1<<OCF5A))
   {
@@ -118,36 +152,72 @@ void addiereSchritte(int anzahlSchritte)
   }
 }
 
+void rueckfahrt()
+{
+  Serial.println("Rückwärtsfahrt");
+  digitalWrite(pinRichtung, HIGH);
+  
+  for(int tisch; tisch <= 2; tisch ++)
+  {
+    addiereSchritte(schrittKonto[tisch]+50, tisch);
+  }
+  while((TIFR5 & 0x0E) != 0x0E)
+  {
+    for(int tisch; tisch <= 2; tisch ++)
+    {
+      if(digitalRead(pinEndlage[tisch]) == 0)
+      {
+        Serial.println("Tisch ist angekommen");
+        // Figur dieses Tisches ist an Endlage angekommen
+        TCCR5C |= (0x80 >> tisch); // Force output compare
+      }
+    }
+  }
+  digitalWrite(pinRichtung, LOW);
+}
+
 void setup()
 {
-  startePWM_Pin6(1000);
+  startePWM_Pin6(schrittPeriode);
   startePWMcounter();
-  starteAbtastTimer(4);
+  starteAbtastTimer(abtastPeriode);
   
   initialisiereSensorpins();
   pinMode(pinSchritt,OUTPUT);
-  for(int pin = 0; pin <= 2; pin++)
+  pinMode(pinRichtung,OUTPUT);
+  for(int tisch = 0; tisch <= 2; tisch++)
   {
-    pinMode(pinsEnable[pin],OUTPUT);
-
-    for(int loch = 0; loch <=5; loch++)
-    {
-      pinMode(pinsTische[pin][loch],INPUT);
-    }
-  }  
+    pinMode(pinsEnable[tisch],OUTPUT);
+    pinMode(pinEndlage[tisch], INPUT_PULLUP);
+  }
   
-  //Serial.begin(9600);
+  
+  Serial.begin(9600);
 }
 
-void loop(()
+
+void loop()
 {
   //Rueckweg
+  rueckfahrt();
+  
+  spielBeendet = false;
+  for(int tisch; tisch <= 2; tisch ++)
+  {
+    schrittKonto[tisch] = 0;
+  }
+  
   
   //Hinweg
-  
-  while()
+  startePWMcounter();
+  while(! spielBeendet)
   {
     pruefeLoecher();
     while( ! (TIFR3 & (1<<ICF4)) );
     TIFR3 = 1<<ICF4;
   }
+  Serial.print("Sieger: ");Serial.println(siegerTisch);
+  while(! (TIFR5 & (0x2 << siegerTisch))){} // Warte solange bis Sieger angekommen ist
+  Serial.println(TIFR5);
+  TCCR5C |= 0xE0; // Motoren deaktivieren  
+}
