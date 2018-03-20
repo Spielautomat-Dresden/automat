@@ -16,7 +16,7 @@ const int entprellZyklen = 200;
 int entprellZaehler[3][6] = {0};
 uint8_t Sensorregister[] = {0,0,0};
 const int schrittMaximum = 20; // Maximale Schrittanzahl bis Tischende
-int schrittKonto[3] = {schrittMaximum};
+int schrittKonto[3] = {schrittMaximum,schrittMaximum,schrittMaximum};
 const int lochBonus[] = {3,3,3,6,6,10};
 boolean spielBeendet = true;
 int siegerTisch = 3;
@@ -154,25 +154,25 @@ void addiereSchritte(int anzahlSchritte, int tisch)
 
 void rueckfahrt()
 {
-  Serial.println("Rückwärtsfahrt");
+  Serial.println("RWFahrt");
   digitalWrite(pinRichtung, HIGH);
   
-  for(int tisch; tisch <= 2; tisch ++)
+  for(int tisch=0; tisch <= 2; tisch ++)
   {
     addiereSchritte(schrittKonto[tisch]+50, tisch);
   }
   while((TIFR5 & 0x0E) != 0x0E)
   {
-    for(int tisch; tisch <= 2; tisch ++)
+    for(int tisch=0; tisch <= 2; tisch ++)
     {
       if(digitalRead(pinEndlage[tisch]) == 0)
       {
-        Serial.println("Tisch ist angekommen");
         // Figur dieses Tisches ist an Endlage angekommen
-        TCCR5C |= (0x80 >> tisch); // Force output compare
+        TCCR5C |= 0xFF;//(0x80 >> tisch); // Force output compare
       }
     }
   }
+  Serial.println("RWFahrt beendet");
   digitalWrite(pinRichtung, LOW);
 }
 
@@ -202,7 +202,7 @@ void loop()
   rueckfahrt();
   
   spielBeendet = false;
-  for(int tisch; tisch <= 2; tisch ++)
+  for(int tisch=0; tisch <= 2; tisch ++)
   {
     schrittKonto[tisch] = 0;
   }
