@@ -3,21 +3,28 @@
 // Step-Pin (mit allen Motortreibern verbunden) mit PWM Signal belegt
 const int pinSchritt = 6;
 // Enable-Pins (jeweils mit Motortreibern verbunden)
-const int pinsEnable[] = {44,45,46};
+const int pinsEnable[] = {46,45,44};
+
+// Sensorpins: 
+// Tisch 0 -> Port A: 22-27, 
+// Tisch 1 -> Port F:A0-A5
+// Tisch 2 -> Port K: A8-A13
+
 // Periodendauer der Schrittmotoren bei Vorwaertsgang in ms
-const int schrittPeriode = 1000;
+const int schrittPeriode = 10;
 // Periodendauer der Sensorabfrageperiode
 const int abtastPeriode = 4;
 const int pinRichtung = 11;
 const int pinEndlage[] = {5,10,2};
+volatile uint16_t *OCR5[] = {&OCR5A,&OCR5B,&OCR5C};
 
 
 const int entprellZyklen = 200;
 int entprellZaehler[3][6] = {0};
 uint8_t Sensorregister[] = {0,0,0};
-const int schrittMaximum = 20; // Maximale Schrittanzahl bis Tischende
+const int schrittMaximum = 3000; // Maximale Schrittanzahl bis Tischende
 int schrittKonto[3] = {schrittMaximum,schrittMaximum,schrittMaximum};
-const int lochBonus[] = {3,3,3,6,6,10};
+const int lochBonus[] = {300,300,300,600,600,1000};
 boolean spielBeendet = true;
 int siegerTisch = 3;
 
@@ -134,21 +141,22 @@ void addiereSchritte(int anzahlSchritte, int tisch)
   // TODO: tisch beachten!!!
   // Beachten Tischreihenfolge "umgekehrt": Tisch 0 an Channel C
   int aktuellerCounterWert; 
-  if(TIFR5 & (1<<OCF5A))
+  if(TIFR5 & (0x02<<tisch))
   {
     // Compare Match Flag ist high -> ~Enable High -> Motor steht
+    
     aktuellerCounterWert = TCNT5;
-    OCR5A = anzahlSchritte + aktuellerCounterWert;
+    *OCR5[tisch] = anzahlSchritte + aktuellerCounterWert;
     // Motor aktivieren
-    TCCR5A &= ~ (1 << COM5A0); // Clear on compare match
-    TCCR5C |= (1<<FOC5A); // Force output compare
-    TCCR5A |= (1<<COM5A1) | (1<<COM5A0); // Set on compare match
-    TIFR5 |= (1<<OCF5A); //Output Compare Match Flag
+    TCCR5A &= ~ (0x40 >> (2*tisch)); // Clear on compare match
+    TCCR5C |= (0x80 >> tisch); // Force output compare
+    TCCR5A |=  (0xC0 >> (2*tisch)); // Set on compare match
+    TIFR5 = (0x02 << tisch); //Output Compare Match Flag
   }
   else
   {
     // Compare Match Flag ist low -> ~Enable Loq -> Motor läuft bereits
-    OCR5A += anzahlSchritte;
+    *OCR5[tisch] += anzahlSchritte;
   }
 }
 
@@ -168,7 +176,7 @@ void rueckfahrt()
       if(digitalRead(pinEndlage[tisch]) == 0)
       {
         // Figur dieses Tisches ist an Endlage angekommen
-        TCCR5C |= 0xFF;//(0x80 >> tisch); // Force output compare
+        TCCR5C |= (0x80 >> tisch); // Force output compare
       }
     }
   }
